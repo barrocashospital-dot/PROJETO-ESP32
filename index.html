@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Central de Segurança IoT</title>
+<meta name="description" content="Painel em tempo real da central de segurança com ESP32, sensor PIR, Telegram e Firebase.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Cpath d=%27M16 2 4 7v8c0 7.5 5 13 12 15 7-2 12-7.500 12-15V7z%27 fill=%27%234cc9d9%27/%3E%3Ccircle cx=%2716%27 cy=%2713%27 r=%274%27 fill=%27%230b1215%27/%3E%3Crect x=%2714.500%27 y=%2717%27 width=%273%27 height=%277%27 rx=%271.500%27 fill=%27%230b1215%27/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -151,6 +153,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 .banner input { flex: 1 1 220px; min-width: 0; font: inherit; font-family: var(--font-mono); font-size: 0.82rem; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
 .err { color: var(--crit); font-size: 0.82rem; flex-basis: 100%; margin: 0; }
 
+.foot { color: var(--muted); font-size: 0.78rem; text-align: center; padding-top: 4px; }
 @media (max-width: 640px) {
   .state { grid-template-columns: 1fr; padding: 18px; }
   .actions { justify-content: stretch; }
@@ -205,6 +208,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
       <p class="err" id="cfgErr" hidden></p>
     </form>
   </aside>
+
+  <footer class="foot">Projeto acadêmico · ESP32 + Wokwi + Telegram + Firebase</footer>
 </div>
 
 <script>
@@ -256,6 +261,7 @@ function render() {
     else { s = "desarmado"; word = "Desarmado"; sub = "Movimentos são ignorados e nenhum alerta é enviado."; }
   }
   st.dataset.s = s;
+  document.title = s === "alarme" ? "ALARME · Central de Segurança IoT" : "Central de Segurança IoT";
   $("word").textContent = word;
   $("sub").textContent = pending ? "Comando enviado. Aguardando a central…" : sub;
 
