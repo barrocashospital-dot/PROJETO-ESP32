@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Central de Segurança IoT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: painel de controle de uma coluna. Faixa de estado grande no topo (o que a central está fazendo agora),
+   métricas em grade logo abaixo, histórico de eventos por último. Dark-first, como uma sala de monitoramento. */
+:root {
+  --bg: #0b1215;
+  --surface: #111b20;
+  --surface-2: #16242a;
+  --line: #223540;
+  --fg: #e6f0f2;
+  --muted: #8aa3ab;
+  --accent: #4cc9d9;
+  --ok: #5fd08a;
+  --warn: #f0b441;
+  --crit: #ff5a5f;
+  --crit-bg: rgba(255, 90, 95, 0.12);
+  --warn-bg: rgba(240, 180, 65, 0.12);
+  --ok-bg: rgba(95, 208, 138, 0.12);
+  --on-accent: #06181c;
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #eef3f4; --surface: #ffffff; --surface-2: #f3f7f8; --line: #d3dfe2;
+    --fg: #0f1e23; --muted: #55707a; --accent: #0a7f90;
+    --ok: #1b8a4b; --warn: #a86a00; --crit: #d1242f;
+    --crit-bg: rgba(209, 36, 47, 0.09); --warn-bg: rgba(168, 106, 0, 0.1); --ok-bg: rgba(27, 138, 75, 0.1);
+    --on-accent: #ffffff;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #eef3f4; --surface: #ffffff; --surface-2: #f3f7f8; --line: #d3dfe2;
+  --fg: #0f1e23; --muted: #55707a; --accent: #0a7f90;
+  --ok: #1b8a4b; --warn: #a86a00; --crit: #d1242f;
+  --crit-bg: rgba(209, 36, 47, 0.09); --warn-bg: rgba(168, 106, 0, 0.1); --ok-bg: rgba(27, 138, 75, 0.1);
+  --on-accent: #ffffff;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* cabeçalho */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { min-width: 0; }
+.brand h1 {
+  margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 1.5rem;
+  letter-spacing: 0.06em; text-transform: uppercase; text-wrap: balance;
+}
+.brand p { margin: 0; color: var(--muted); font-size: 0.85rem; }
+.conn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+  font-size: 0.8rem; color: var(--muted);
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.conn.on .dot { background: var(--ok); }
+.conn.off .dot { background: var(--crit); }
+.conn.on { color: var(--fg); }
+
+/* faixa de estado */
+.state {
+  display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center;
+  padding: 22px 24px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+  border-left-width: 6px;
+}
+.state[data-s="desarmado"] { border-left-color: var(--ok); }
+.state[data-s="armado"] { border-left-color: var(--warn); }
+.state[data-s="alarme"] { border-left-color: var(--crit); background: var(--crit-bg); }
+.state[data-s="offline"] { border-left-color: var(--muted); }
+.state .label { font-size: 0.75rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.state .word {
+  font-family: var(--font-display); font-weight: 700; font-size: clamp(2.4rem, 8vw, 4rem);
+  line-height: 1; letter-spacing: 0.03em; text-transform: uppercase; margin: 4px 0 6px;
+}
+.state[data-s="desarmado"] .word { color: var(--ok); }
+.state[data-s="armado"] .word { color: var(--warn); }
+.state[data-s="alarme"] .word { color: var(--crit); animation: blink 1s steps(2, start) infinite; }
+.state[data-s="offline"] .word { color: var(--muted); }
+.state .sub { color: var(--muted); margin: 0; min-height: 1.5em; }
+@keyframes blink { 50% { opacity: 0.45; } }
+
+.actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+button {
+  font: inherit; font-weight: 600; cursor: pointer; padding: 11px 20px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface-2); color: var(--fg);
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+button:hover:not(:disabled) { filter: brightness(1.1); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* métricas */
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.tile { padding: 16px 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); min-width: 0; }
+.tile h2 { margin: 0 0 8px; font-size: 0.72rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.tile .v { font-family: var(--font-mono); font-size: 1.7rem; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.tile .n { margin: 4px 0 0; font-size: 0.82rem; color: var(--muted); }
+.pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; font-family: var(--font-body); vertical-align: middle; }
+.pill.crit { color: var(--crit); background: var(--crit-bg); }
+.pill.warn { color: var(--warn); background: var(--warn-bg); }
+.pill.ok { color: var(--ok); background: var(--ok-bg); }
+.pill.mute { color: var(--muted); background: var(--surface-2); }
+.bars { display: inline-flex; align-items: flex-end; gap: 3px; height: 22px; margin-right: 10px; vertical-align: middle; }
+.bars i { width: 5px; background: var(--line); border-radius: 1px; }
+.bars i:nth-child(1) { height: 6px; } .bars i:nth-child(2) { height: 10px; }
+.bars i:nth-child(3) { height: 15px; } .bars i:nth-child(4) { height: 21px; }
+.bars i.on { background: var(--accent); }
+
+/* eventos */
+.log { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.log header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.log h2 { margin: 0; font-family: var(--font-display); font-size: 1.15rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.log header span { color: var(--muted); font-size: 0.8rem; }
+.log ul { list-style: none; margin: 0; padding: 0; max-height: 380px; overflow-y: auto; }
+.log li { display: grid; grid-template-columns: 5.2rem 8.5rem 1fr auto; gap: 12px; align-items: center; padding: 10px 18px; border-bottom: 1px solid var(--line); }
+.log li:last-child { border-bottom: 0; }
+.log .when { font-size: 0.85rem; color: var(--muted); }
+.log .what { min-width: 0; overflow-wrap: anywhere; }
+.log .up { font-size: 0.78rem; color: var(--muted); }
+.empty { padding: 28px 18px; color: var(--muted); text-align: center; }
+
+/* modo demonstração / conexão */
+.banner { padding: 14px 18px; border: 1px dashed var(--line); border-radius: 10px; background: var(--surface); display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.banner p { margin: 0; color: var(--muted); font-size: 0.88rem; flex: 1 1 260px; min-width: 0; }
+.banner strong { color: var(--fg); }
+.banner form { display: flex; gap: 8px; flex: 1 1 360px; min-width: 0; flex-wrap: wrap; }
+.banner input { flex: 1 1 220px; min-width: 0; font: inherit; font-family: var(--font-mono); font-size: 0.82rem; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
+.err { color: var(--crit); font-size: 0.82rem; flex-basis: 100%; margin: 0; }
+
+@media (max-width: 640px) {
+  .state { grid-template-columns: 1fr; padding: 18px; }
+  .actions { justify-content: stretch; }
+  .actions button { flex: 1; }
+  .log li { grid-template-columns: 4.6rem 1fr; row-gap: 2px; }
+  .log li .up { grid-column: 2; }
+}
+@media (prefers-reduced-motion: reduce) { .state[data-s="alarme"] .word { animation: none; } }
+</style>
+<style>html{color-scheme:dark}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Central de Segurança IoT</h1>
+      <p>Sala de Equipamentos · ESP32 + sensor PIR</p>
+    </div>
+    <div class="conn" id="conn" role="status"><span class="dot"></span><span id="connTxt">Conectando…</span></div>
+  </header>
+
+  <section class="state" id="state" data-s="offline" aria-live="polite">
+    <div>
+      <div class="label">Situação da central</div>
+      <div class="word" id="word">—</div>
+      <p class="sub" id="sub"></p>
+    </div>
+    <div class="actions">
+      <button class="primary" id="btnArmar" type="button">Armar</button>
+      <button id="btnDesarmar" type="button">Desarmar</button>
+    </div>
+  </section>
+
+  <section class="grid" aria-label="Medições">
+    <div class="tile"><h2>Sensor PIR</h2><div class="v" id="pir">—</div><p class="n" id="pirN">Leitura em tempo real</p></div>
+    <div class="tile"><h2>Intrusões registradas</h2><div class="v" id="oc">0</div><p class="n" id="ocN">Desde que a central ligou</p></div>
+    <div class="tile"><h2>Sinal Wi-Fi</h2><div class="v"><span class="bars" id="bars"><i></i><i></i><i></i><i></i></span><span id="rssi">—</span></div><p class="n" id="rssiN">Rede Wokwi-GUEST</p></div>
+    <div class="tile"><h2>Tempo ligada</h2><div class="v" id="up">—</div><p class="n">horas : minutos : segundos</p></div>
+  </section>
+
+  <section class="log" aria-label="Histórico de eventos">
+    <header><h2>Histórico</h2><span id="logN"></span></header>
+    <ul id="events"></ul>
+  </section>
+
+  <aside class="banner" id="banner" hidden>
+    <p><strong>Modo demonstração.</strong> Os dados abaixo são simulados. Cole a URL do seu Realtime Database para ver a central de verdade.</p>
+    <form id="cfg">
+      <input id="fbUrl" type="url" inputmode="url" placeholder="https://seu-projeto-default-rtdb.firebaseio.com" autocomplete="off" aria-label="URL do Firebase Realtime Database">
+      <button class="primary" type="submit">Conectar</button>
+      <p class="err" id="cfgErr" hidden></p>
+    </form>
+  </aside>
+</div>
+
+<script>
+/* ===== Configuração =====
+   Preencha FIREBASE_URL com a URL do seu Realtime Database (sem barra no final).
+   Se ficar vazio, a página pede a URL e guarda no navegador. */
+const CONFIG = { FIREBASE_URL: "" };
+
+const POLL_MS = 2000;
+const ONLINE_MS = 15000;
+const $ = (id) => document.getElementById(id);
+
+let demo = false;
+let S = { armado: false, alarme: false, pir: false, rssi: null, uptime: 0, ocorrencias: 0, ts: 0 };
+let EV = [];
+let pending = null; // comando enviado, aguardando a central responder
+let online = false;
+
+function baseUrl() {
+  let u = CONFIG.FIREBASE_URL;
+  try { u = u || localStorage.getItem("fbUrl") || ""; } catch (e) {}
+  return (u || "").trim().replace(/\/+$/, "");
+}
+
+/* ---------- formatação ---------- */
+const pad = (n) => String(n).padStart(2, "0");
+function fmtUp(s) { s = Math.max(0, Math.floor(s || 0)); return pad(Math.floor(s / 3600)) + ":" + pad(Math.floor(s / 60) % 60) + ":" + pad(s % 60); }
+function fmtClock(ts) { const d = new Date(ts); return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()); }
+function ago(ts) {
+  const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+  if (s < 5) return "agora";
+  if (s < 60) return "há " + s + " s";
+  if (s < 3600) return "há " + Math.floor(s / 60) + " min";
+  return "há " + Math.floor(s / 3600) + " h";
+}
+const TIPOS = {
+  INTRUSAO: { txt: "Intrusão detectada", cls: "crit" },
+  ARMADO: { txt: "Sistema armado", cls: "warn" },
+  DESARMADO: { txt: "Sistema desarmado", cls: "ok" }
+};
+
+/* ---------- desenho ---------- */
+function render() {
+  const st = $("state");
+  let s = "offline", word = "Sem conexão", sub = "A central não envia dados há mais de 15 segundos.";
+  if (online) {
+    if (S.alarme) { s = "alarme"; word = "Alarme"; sub = "Movimento detectado com o sistema armado."; }
+    else if (S.armado) { s = "armado"; word = "Armado"; sub = "Monitorando o sensor PIR."; }
+    else { s = "desarmado"; word = "Desarmado"; sub = "Movimentos são ignorados e nenhum alerta é enviado."; }
+  }
+  st.dataset.s = s;
+  $("word").textContent = word;
+  $("sub").textContent = pending ? "Comando enviado. Aguardando a central…" : sub;
+
+  const c = $("conn");
+  c.className = "conn " + (online ? "on" : "off");
+  $("connTxt").textContent = demo ? "Demonstração" : online ? "Central online · " + ago(S.ts) : "Central offline";
+
+  $("btnArmar").disabled = !online || !!pending || S.armado;
+  $("btnDesarmar").disabled = !online || !!pending || !S.armado;
+
+  $("pir").innerHTML = online
+    ? (S.pir ? '<span class="pill crit">MOVIMENTO</span>' : '<span class="pill mute">SEM MOVIMENTO</span>')
+    : "—";
+  $("pirN").textContent = S.armado ? "Sistema armado: o sensor dispara o alarme" : "Sistema desarmado: o sensor é ignorado";
+  $("oc").textContent = S.ocorrencias || 0;
+
+  const r = S.rssi;
+  $("rssi").textContent = r == null ? "—" : r + " dBm";
+  const lvl = r == null ? 0 : r >= -55 ? 4 : r >= -65 ? 3 : r >= -75 ? 2 : 1;
+  [...$("bars").children].forEach((b, i) => b.classList.toggle("on", i < lvl));
+  $("up").textContent = online ? fmtUp(S.uptime) : "—";
+
+  const ul = $("events");
+  $("logN").textContent = EV.length ? "últimos " + EV.length + " eventos" : "";
+  if (!EV.length) { ul.innerHTML = '<li class="empty" style="display:block">Nenhum evento ainda. Arme a central e acione o sensor PIR.</li>'; return; }
+  ul.innerHTML = EV.map((e) => {
+    const t = TIPOS[e.tipo] || { txt: e.tipo, cls: "mute" };
+    return '<li><span class="when mono">' + fmtClock(e.ts) + '</span><span><span class="pill ' + t.cls + '">' + (e.tipo || "") + '</span></span>' +
+      '<span class="what">' + t.txt + (e.tipo === "INTRUSAO" && e.ocorrencias ? " (nº " + e.ocorrencias + ")" : "") + '</span>' +
+      '<span class="up mono">' + ago(e.ts) + '</span></li>';
+  }).join("");
+}
+
+/* ---------- Firebase (REST) ---------- */
+async function pull() {
+  const b = baseUrl();
+  try {
+    const [est, evs] = await Promise.all([
+      fetch(b + "/central/estado.json").then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }),
+      fetch(b + "/central/eventos.json?orderBy=" + encodeURIComponent('"$key"') + "&limitToLast=30").then((r) => r.json())
+    ]);
+    if (est) {
+      const before = S.armado;
+      S = { armado: !!est.armado, alarme: !!est.alarme, pir: !!est.pir, rssi: est.rssi ?? null, uptime: est.uptime || 0, ocorrencias: est.ocorrencias || 0, ts: est.atualizadoEm || 0 };
+      online = Date.now() - S.ts < ONLINE_MS;
+      if (pending && S.armado === pending.alvo) pending = null;
+      if (pending && Date.now() - pending.t > 10000) pending = null;
+    } else { online = false; }
+    EV = evs && typeof evs === "object" ? Object.values(evs).sort((a, b) => b.ts - a.ts) : [];
+  } catch (e) { online = false; }
+  render();
+}
+
+async function enviarComando(cmd) {
+  if (demo) { demoSet(cmd === "armar"); return; }
+  pending = { alvo: cmd === "armar", t: Date.now() };
+  render();
+  try {
+    await fetch(baseUrl() + "/central/comando.json", { method: "PUT", body: JSON.stringify(cmd) });
+  } catch (e) { pending = null; }
+  render();
+}
+
+/* ---------- modo demonstração ---------- */
+function demoPush(tipo) {
+  EV.unshift({ tipo, ts: Date.now(), ocorrencias: S.ocorrencias, uptime: S.uptime });
+  EV = EV.slice(0, 30);
+}
+function demoSet(arm) {
+  S.armado = arm; S.alarme = false; S.ts = Date.now();
+  demoPush(arm ? "ARMADO" : "DESARMADO");
+  render();
+}
+function startDemo() {
+  demo = true; online = true;
+  const now = Date.now();
+  S = { armado: true, alarme: false, pir: false, rssi: -58, uptime: 1394, ocorrencias: 3, ts: now };
+  EV = [
+    { tipo: "INTRUSAO", ts: now - 71000, ocorrencias: 3 },
+    { tipo: "INTRUSAO", ts: now - 188000, ocorrencias: 2 },
+    { tipo: "ARMADO", ts: now - 241000 },
+    { tipo: "DESARMADO", ts: now - 602000 },
+    { tipo: "INTRUSAO", ts: now - 733000, ocorrencias: 1 },
+    { tipo: "ARMADO", ts: now - 810000 }
+  ];
+  $("banner").hidden = false;
+  let alarmeAte = 0;
+  setInterval(() => {
+    S.uptime++; S.ts = Date.now();
+    S.rssi = -58 + Math.round(Math.sin(S.uptime / 7) * 4);
+    if (S.alarme && Date.now() > alarmeAte) { S.alarme = false; }
+    S.pir = S.alarme;
+    if (S.armado && !S.alarme && Math.random() < 0.06) {
+      S.alarme = true; S.pir = true; S.ocorrencias++; alarmeAte = Date.now() + 6000; demoPush("INTRUSAO");
+    }
+    render();
+  }, 1000);
+  render();
+}
+
+/* ---------- início ---------- */
+$("btnArmar").addEventListener("click", () => enviarComando("armar"));
+$("btnDesarmar").addEventListener("click", () => enviarComando("desarmar"));
+$("cfg").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const u = $("fbUrl").value.trim().replace(/\/+$/, "");
+  const err = $("cfgErr"); err.hidden = true;
+  try {
+    const r = await fetch(u + "/central/estado.json");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    try { localStorage.setItem("fbUrl", u); } catch (e) {}
+    location.reload();
+  } catch (e) {
+    err.textContent = "Não consegui ler esse endereço. Confira a URL e se as regras do banco permitem leitura.";
+    err.hidden = false;
+  }
+});
+
+if (baseUrl()) { pull(); setInterval(pull, POLL_MS); }
+else { startDemo(); }
+</script>
+
+</body>
+</html>
