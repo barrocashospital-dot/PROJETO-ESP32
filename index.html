@@ -209,7 +209,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
   </section>
 
   <aside class="banner" id="banner" hidden>
-    <p><strong>Modo demonstração.</strong> Os dados abaixo são simulados. Cole a URL do seu Realtime Database para ver a central de verdade.</p>
+    <p id="bannerTxt"><strong>Modo demonstração.</strong> Os dados abaixo são simulados. Cole a URL do seu Realtime Database para ver a central de verdade.</p>
     <form id="cfg">
       <input id="fbUrl" type="url" inputmode="url" placeholder="https://seu-projeto-default-rtdb.firebaseio.com" autocomplete="off" aria-label="URL do Firebase Realtime Database">
       <button class="primary" type="submit">Conectar</button>
@@ -407,7 +407,13 @@ $("cfg").addEventListener("submit", async (ev) => {
   }
 });
 
-if (baseUrl()) { pull(); setInterval(pull, POLL_MS); }
+if (baseUrl()) {
+  // conectado: o campo da URL continua visível, já preenchido, para trocar de banco quando quiser
+  $("banner").hidden = false;
+  $("bannerTxt").innerHTML = "<strong>Banco de dados conectado.</strong> Para usar outro banco, cole a nova URL e clique em Conectar.";
+  $("fbUrl").value = baseUrl();
+  pull(); setInterval(pull, POLL_MS);
+}
 else { startDemo(); }
 </script>
 
