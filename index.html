@@ -11,22 +11,26 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 /* Layout: painel de controle de uma coluna. Faixa de estado grande no topo (o que a central está fazendo agora),
-   métricas em grade logo abaixo, histórico de eventos por último. Dark-first, como uma sala de monitoramento. */
+   métricas em grade, gráfico das últimas 24 h e histórico em linha do tempo. Dark-first, como uma sala de monitoramento. */
 :root {
-  --bg: #0b1215;
-  --surface: #111b20;
-  --surface-2: #16242a;
-  --line: #223540;
-  --fg: #e6f0f2;
-  --muted: #8aa3ab;
+  --bg: #090f12;
+  --bg-glow: rgba(76, 201, 217, 0.08);
+  --surface: #0f181d;
+  --surface-2: #15222a;
+  --line: #1f323b;
+  --line-soft: #172830;
+  --fg: #e8f1f3;
+  --muted: #8ba5ad;
   --accent: #4cc9d9;
+  --accent-soft: rgba(76, 201, 217, 0.14);
   --ok: #5fd08a;
   --warn: #f0b441;
   --crit: #ff5a5f;
-  --crit-bg: rgba(255, 90, 95, 0.12);
+  --crit-bg: rgba(255, 90, 95, 0.13);
   --warn-bg: rgba(240, 180, 65, 0.12);
   --ok-bg: rgba(95, 208, 138, 0.12);
-  --on-accent: #06181c;
+  --on-accent: #04171b;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 24px rgba(0, 0, 0, 0.28);
   --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
   --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
@@ -34,149 +38,184 @@
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
-    --bg: #eef3f4; --surface: #ffffff; --surface-2: #f3f7f8; --line: #d3dfe2;
-    --fg: #0f1e23; --muted: #55707a; --accent: #0a7f90;
+    --bg: #edf2f3; --bg-glow: rgba(10, 127, 144, 0.1);
+    --surface: #ffffff; --surface-2: #f2f6f7; --line: #d5e0e3; --line-soft: #e6eef0;
+    --fg: #0f1e23; --muted: #55707a; --accent: #0a7f90; --accent-soft: rgba(10, 127, 144, 0.12);
     --ok: #1b8a4b; --warn: #a86a00; --crit: #d1242f;
-    --crit-bg: rgba(209, 36, 47, 0.09); --warn-bg: rgba(168, 106, 0, 0.1); --ok-bg: rgba(27, 138, 75, 0.1);
+    --crit-bg: rgba(209, 36, 47, 0.08); --warn-bg: rgba(168, 106, 0, 0.1); --ok-bg: rgba(27, 138, 75, 0.1);
     --on-accent: #ffffff;
+    --shadow: 0 1px 2px rgba(15, 30, 35, 0.06), 0 6px 18px rgba(15, 30, 35, 0.06);
     color-scheme: light;
   }
 }
 :root[data-theme="light"] {
-  --bg: #eef3f4; --surface: #ffffff; --surface-2: #f3f7f8; --line: #d3dfe2;
-  --fg: #0f1e23; --muted: #55707a; --accent: #0a7f90;
+  --bg: #edf2f3; --bg-glow: rgba(10, 127, 144, 0.1);
+  --surface: #ffffff; --surface-2: #f2f6f7; --line: #d5e0e3; --line-soft: #e6eef0;
+  --fg: #0f1e23; --muted: #55707a; --accent: #0a7f90; --accent-soft: rgba(10, 127, 144, 0.12);
   --ok: #1b8a4b; --warn: #a86a00; --crit: #d1242f;
-  --crit-bg: rgba(209, 36, 47, 0.09); --warn-bg: rgba(168, 106, 0, 0.1); --ok-bg: rgba(27, 138, 75, 0.1);
+  --crit-bg: rgba(209, 36, 47, 0.08); --warn-bg: rgba(168, 106, 0, 0.1); --ok-bg: rgba(27, 138, 75, 0.1);
   --on-accent: #ffffff;
+  --shadow: 0 1px 2px rgba(15, 30, 35, 0.06), 0 6px 18px rgba(15, 30, 35, 0.06);
   color-scheme: light;
 }
 
 * { box-sizing: border-box; }
+html { color-scheme: dark; }
 body {
-  background: var(--bg);
+  margin: 0;
+  background: radial-gradient(900px 420px at 50% -120px, var(--bg-glow), transparent 70%), var(--bg);
+  background-attachment: fixed;
   color: var(--fg);
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.5;
-  padding-block: 20px 40px;
+  padding-block: 22px 44px;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
+[hidden] { display: none !important; }
 .wrap { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+svg.i { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
 /* cabeçalho */
 .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.brand { min-width: 0; }
-.brand h1 {
-  margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 1.5rem;
-  letter-spacing: 0.06em; text-transform: uppercase; text-wrap: balance;
-}
-.brand p { margin: 0; color: var(--muted); font-size: 0.85rem; }
-.conn {
-  display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px;
-  border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
-  font-size: 0.8rem; color: var(--muted);
-}
+.brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.logo { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; flex: none;
+  background: linear-gradient(145deg, var(--accent-soft), transparent), var(--surface);
+  border: 1px solid var(--line); color: var(--accent); font-size: 24px; box-shadow: var(--shadow); }
+.brand h1 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 1.55rem; line-height: 1.1; letter-spacing: 0.06em; text-transform: uppercase; text-wrap: balance; }
+.brand p { margin: 2px 0 0; color: var(--muted); font-size: 0.85rem; }
 .tools { display: flex; align-items: center; gap: 8px; }
-button.theme { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 500; background: var(--surface); color: var(--muted); }
-button.theme svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-body, .state, .tile, .log, .banner, .conn, button, input { transition: background-color .25s, border-color .25s, color .25s; }
-@media (prefers-reduced-motion: reduce) { body, .state, .tile, .log, .banner, .conn, button, input { transition: none; } }
+.conn { display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font-size: 0.8rem; color: var(--muted); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
-.conn.on .dot { background: var(--ok); }
+.conn.on { color: var(--fg); } .conn.on .dot { background: var(--ok); box-shadow: 0 0 0 0 var(--ok); animation: ping 2s ease-out infinite; }
 .conn.off .dot { background: var(--crit); }
-.conn.on { color: var(--fg); }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(95, 208, 138, 0.55); } 80%, 100% { box-shadow: 0 0 0 7px rgba(95, 208, 138, 0); } }
+button.theme { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border-radius: 999px; font-size: 0.8rem; font-weight: 500; background: var(--surface); color: var(--muted); }
+button.theme svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* faixa de estado */
 .state {
-  display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center;
-  padding: 22px 24px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
-  border-left-width: 6px;
+  position: relative; overflow: hidden; display: grid; grid-template-columns: auto 1fr auto; gap: 22px; align-items: center;
+  padding: 26px 28px; border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow);
+  background: linear-gradient(120deg, var(--tint, transparent), transparent 55%), var(--surface);
 }
-.state[data-s="desarmado"] { border-left-color: var(--ok); }
-.state[data-s="armado"] { border-left-color: var(--warn); }
-.state[data-s="alarme"] { border-left-color: var(--crit); background: var(--crit-bg); }
-.state[data-s="offline"] { border-left-color: var(--muted); }
-.state .label { font-size: 0.75rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
-.state .word {
-  font-family: var(--font-display); font-weight: 700; font-size: clamp(2.4rem, 8vw, 4rem);
-  line-height: 1; letter-spacing: 0.03em; text-transform: uppercase; margin: 4px 0 6px;
-}
-.state[data-s="desarmado"] .word { color: var(--ok); }
-.state[data-s="armado"] .word { color: var(--warn); }
-.state[data-s="alarme"] .word { color: var(--crit); animation: blink 1s steps(2, start) infinite; }
-.state[data-s="offline"] .word { color: var(--muted); }
+.state[data-s="desarmado"] { --tint: var(--ok-bg); --c: var(--ok); }
+.state[data-s="armado"] { --tint: var(--warn-bg); --c: var(--warn); }
+.state[data-s="alarme"] { --tint: var(--crit-bg); --c: var(--crit); border-color: var(--crit); }
+.state[data-s="offline"] { --tint: transparent; --c: var(--muted); }
+.state .icon { position: relative; width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; color: var(--c); font-size: 38px;
+  background: color-mix(in srgb, var(--c) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c) 40%, transparent); }
+.state .icon::after { content: ""; position: absolute; inset: -9px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--c) 22%, transparent); }
+.state[data-s="alarme"] .icon::after { animation: ripple 1.2s ease-out infinite; }
+@keyframes ripple { 0% { transform: scale(0.9); opacity: 1; } 100% { transform: scale(1.35); opacity: 0; } }
+.state .label { font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.state .word { font-family: var(--font-display); font-weight: 700; font-size: clamp(2.5rem, 8vw, 4.2rem); line-height: 1; letter-spacing: 0.03em; text-transform: uppercase; margin: 4px 0 8px; color: var(--c); }
+.state[data-s="alarme"] .word { animation: blink 1s steps(2, start) infinite; }
 .state .sub { color: var(--muted); margin: 0; min-height: 1.5em; }
-@keyframes blink { 50% { opacity: 0.45; } }
+@keyframes blink { 50% { opacity: 0.5; } }
 
 .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 button {
-  font: inherit; font-weight: 600; cursor: pointer; padding: 11px 20px; border-radius: 8px;
+  font: inherit; font-weight: 600; cursor: pointer; padding: 11px 20px; border-radius: 10px;
   border: 1px solid var(--line); background: var(--surface-2); color: var(--fg);
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
 }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-button:hover:not(:disabled) { filter: brightness(1.1); }
-button:disabled { opacity: 0.45; cursor: not-allowed; }
+button:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); }
+button:active:not(:disabled) { transform: translateY(0); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.actions button { padding: 13px 22px; }
 
 /* métricas */
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
-.tile { padding: 16px 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); min-width: 0; }
-.tile h2 { margin: 0 0 8px; font-size: 0.72rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
-.tile .v { font-family: var(--font-mono); font-size: 1.7rem; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.2; }
-.tile .n { margin: 4px 0 0; font-size: 0.82rem; color: var(--muted); }
-.pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; font-family: var(--font-body); vertical-align: middle; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 12px; }
+.tile { position: relative; padding: 16px 16px 16px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); min-width: 0; }
+.tile h2 { margin: 0 0 12px; display: flex; align-items: center; gap: 8px; font-size: 0.72rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.tile h2 svg { font-size: 15px; color: var(--accent); }
+.tile .v { font-family: var(--font-mono); font-size: 1.55rem; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.2; min-height: 2.2rem; display: flex; flex-wrap: wrap; align-items: center; }
+.tile .n { margin: 8px 0 0; font-size: 0.82rem; color: var(--muted); }
+.pill { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; font-family: var(--font-body); vertical-align: middle; }
 .pill.crit { color: var(--crit); background: var(--crit-bg); }
 .pill.warn { color: var(--warn); background: var(--warn-bg); }
 .pill.ok { color: var(--ok); background: var(--ok-bg); }
 .pill.mute { color: var(--muted); background: var(--surface-2); }
-.bars { display: inline-flex; align-items: flex-end; gap: 3px; height: 22px; margin-right: 10px; vertical-align: middle; }
-.bars i { width: 5px; background: var(--line); border-radius: 1px; }
-.bars i:nth-child(1) { height: 6px; } .bars i:nth-child(2) { height: 10px; }
-.bars i:nth-child(3) { height: 15px; } .bars i:nth-child(4) { height: 21px; }
+.tile[data-mov="1"] { border-color: var(--crit); background: linear-gradient(var(--crit-bg), var(--crit-bg)), var(--surface); }
+.tile .v small { font-size: 0.8rem; color: var(--muted); margin-left: 5px; font-weight: 400; }
+.bars { display: inline-flex; align-items: flex-end; gap: 3px; height: 24px; margin-right: 8px; }
+.bars i { width: 6px; background: var(--line); border-radius: 2px; }
+.bars i:nth-child(1) { height: 7px; } .bars i:nth-child(2) { height: 12px; }
+.bars i:nth-child(3) { height: 18px; } .bars i:nth-child(4) { height: 24px; }
 .bars i.on { background: var(--accent); }
 
-/* eventos */
-.log { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
-.log header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+/* gráfico 24 h */
+.card { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+.chart { padding: 16px 20px 14px; }
+.chart header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.chart h2 { margin: 0; font-family: var(--font-display); font-size: 1.15rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.chart header span { color: var(--muted); font-size: 0.82rem; }
+.spark { display: grid; grid-template-columns: repeat(24, 1fr); gap: 4px; align-items: end; height: 76px; }
+.spark i { display: block; min-height: 4px; border-radius: 3px 3px 1px 1px; background: var(--line); }
+.spark i.hit { background: var(--crit); }
+.axis { display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.72rem; color: var(--muted); font-family: var(--font-mono); }
+
+/* histórico */
+.log { overflow: hidden; }
+.log header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 15px 20px; border-bottom: 1px solid var(--line); }
 .log h2 { margin: 0; font-family: var(--font-display); font-size: 1.15rem; letter-spacing: 0.08em; text-transform: uppercase; }
 .log header span { color: var(--muted); font-size: 0.8rem; }
-.log ul { list-style: none; margin: 0; padding: 0; max-height: 380px; overflow-y: auto; }
-.log li { display: grid; grid-template-columns: 5.2rem 8.5rem 1fr auto; gap: 12px; align-items: center; padding: 10px 18px; border-bottom: 1px solid var(--line); }
+.log ul { list-style: none; margin: 0; padding: 0; max-height: 400px; overflow-y: auto; }
+.log li { position: relative; display: grid; grid-template-columns: 5.2rem 8.5rem 1fr auto; gap: 12px; align-items: center; padding: 11px 20px 11px 24px; border-bottom: 1px solid var(--line-soft); }
+.log li::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--k, var(--line)); }
+.log li[data-k="INTRUSAO"] { --k: var(--crit); background: linear-gradient(90deg, var(--crit-bg), transparent 40%); }
+.log li[data-k="ARMADO"] { --k: var(--warn); }
+.log li[data-k="DESARMADO"] { --k: var(--ok); }
 .log li:last-child { border-bottom: 0; }
+.log li:hover { background-color: var(--surface-2); }
 .log .when { font-size: 0.85rem; color: var(--muted); }
 .log .what { min-width: 0; overflow-wrap: anywhere; }
-.log .up { font-size: 0.78rem; color: var(--muted); }
-.empty { padding: 28px 18px; color: var(--muted); text-align: center; }
+.log .up { font-size: 0.78rem; color: var(--muted); text-align: right; }
+.empty { padding: 32px 18px; color: var(--muted); text-align: center; display: block !important; }
+.empty::before { display: none; }
 
 /* modo demonstração / conexão */
-.banner { padding: 14px 18px; border: 1px dashed var(--line); border-radius: 10px; background: var(--surface); display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.banner { padding: 14px 18px; border: 1px dashed var(--line); border-radius: 14px; background: var(--surface); display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
 .banner p { margin: 0; color: var(--muted); font-size: 0.88rem; flex: 1 1 260px; min-width: 0; }
 .banner strong { color: var(--fg); }
 .banner form { display: flex; gap: 8px; flex: 1 1 360px; min-width: 0; flex-wrap: wrap; }
-.banner input { flex: 1 1 220px; min-width: 0; font: inherit; font-family: var(--font-mono); font-size: 0.82rem; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
+.banner input { flex: 1 1 220px; min-width: 0; font: inherit; font-family: var(--font-mono); font-size: 0.82rem; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
 .err { color: var(--crit); font-size: 0.82rem; flex-basis: 100%; margin: 0; }
 
 .foot { color: var(--muted); font-size: 0.78rem; text-align: center; padding-top: 4px; }
-@media (max-width: 640px) {
-  .state { grid-template-columns: 1fr; padding: 18px; }
-  .actions { justify-content: stretch; }
+
+body, .state, .tile, .card, .banner, .conn, button, input { transition: background-color .25s, border-color .25s, color .25s, transform .12s, filter .12s; }
+@media (max-width: 700px) {
+  .state { grid-template-columns: auto 1fr; padding: 20px; gap: 16px; }
+  .state .icon { width: 64px; height: 64px; font-size: 30px; }
+  .actions { grid-column: 1 / -1; justify-content: stretch; }
   .actions button { flex: 1; }
-  .log li { grid-template-columns: 4.6rem 1fr; row-gap: 2px; }
-  .log li .up { grid-column: 2; }
+  .log li { grid-template-columns: 4.6rem 1fr; row-gap: 3px; }
+  .log li .up { grid-column: 2; text-align: left; }
+  .brand h1 { font-size: 1.3rem; }
+  .logo { width: 40px; height: 40px; font-size: 20px; }
 }
-@media (prefers-reduced-motion: reduce) { .state[data-s="alarme"] .word { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .state[data-s="alarme"] .word, .state[data-s="alarme"] .icon::after, .conn.on .dot { animation: none; }
+  body, .state, .tile, .card, .banner, .conn, button, input { transition: none; }
+}
 </style>
-<style>html{color-scheme:dark}body{margin:0}[hidden]{display:none!important}</style>
 </head>
 <body>
 
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <h1>Central de Segurança IoT</h1>
-      <p>Sala de Equipamentos · ESP32 + sensor PIR</p>
+      <div class="logo" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M12 3 5 6v5.5c0 4.6 3 8 7 9.5 4-1.5 7-4.9 7-9.500V6z"/><path d="m9 12 2 2 4-4"/></svg></div>
+      <div>
+        <h1>Central de Segurança IoT</h1>
+        <p>Sala de Equipamentos · ESP32 + sensor PIR</p>
+      </div>
     </div>
     <div class="tools">
       <div class="conn" id="conn" role="status"><span class="dot"></span><span id="connTxt">Conectando…</span></div>
@@ -185,25 +224,32 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
   </header>
 
   <section class="state" id="state" data-s="offline" aria-live="polite">
+    <div class="icon" id="stateIcon" aria-hidden="true"></div>
     <div>
       <div class="label">Situação da central</div>
       <div class="word" id="word">—</div>
       <p class="sub" id="sub"></p>
     </div>
     <div class="actions">
-      <button class="primary" id="btnArmar" type="button">Armar</button>
-      <button id="btnDesarmar" type="button">Desarmar</button>
+      <button class="primary" id="btnArmar" type="button"><svg class="i" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Armar</button>
+      <button id="btnDesarmar" type="button"><svg class="i" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/></svg>Desarmar</button>
     </div>
   </section>
 
   <section class="grid" aria-label="Medições">
-    <div class="tile"><h2>Sensor PIR</h2><div class="v" id="pir">—</div><p class="n" id="pirN">Leitura em tempo real</p></div>
-    <div class="tile"><h2>Intrusões registradas</h2><div class="v" id="oc">0</div><p class="n" id="ocN">Desde que a central ligou</p></div>
-    <div class="tile"><h2>Sinal Wi-Fi</h2><div class="v"><span class="bars" id="bars"><i></i><i></i><i></i><i></i></span><span id="rssi">—</span></div><p class="n" id="rssiN">Rede Wokwi-GUEST</p></div>
-    <div class="tile"><h2>Tempo ligada</h2><div class="v" id="up">—</div><p class="n">horas : minutos : segundos</p></div>
+    <div class="tile" id="tilePir" data-mov="0"><h2><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M7.800 7.800a6 6 0 0 0 0 8.400M16.200 7.800a6 6 0 0 1 0 8.400M4.900 4.900a10 10 0 0 0 0 14.200M19.100 4.900a10 10 0 0 1 0 14.200"/></svg>Sensor PIR</h2><div class="v" id="pir">—</div><p class="n" id="pirN">Leitura em tempo real</p></div>
+    <div class="tile"><h2><svg class="i" viewBox="0 0 24 24"><path d="M12 3 2.500 20h19z"/><path d="M12 10v4M12 17.500v.01"/></svg>Intrusões registradas</h2><div class="v" id="oc">0</div><p class="n" id="ocN">Desde que a central ligou</p></div>
+    <div class="tile"><h2><svg class="i" viewBox="0 0 24 24"><path d="M2 9a15 15 0 0 1 20 0M5 12.500a10 10 0 0 1 14 0M8.500 16a5 5 0 0 1 7 0M12 19.500v.01"/></svg>Sinal Wi-Fi</h2><div class="v"><span class="bars" id="bars"><i></i><i></i><i></i><i></i></span><span id="rssi">—</span></div><p class="n" id="rssiN">Rede Wokwi-GUEST</p></div>
+    <div class="tile"><h2><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Tempo ligada</h2><div class="v" id="up">—</div><p class="n">horas : minutos : segundos</p></div>
   </section>
 
-  <section class="log" aria-label="Histórico de eventos">
+  <section class="card chart" aria-label="Intrusões nas últimas 24 horas">
+    <header><h2>Últimas 24 horas</h2><span id="sparkN"></span></header>
+    <div class="spark" id="spark" role="img" aria-label="Intrusões por hora nas últimas 24 horas"></div>
+    <div class="axis" aria-hidden="true"><span>há 24 h</span><span>há 12 h</span><span>agora</span></div>
+  </section>
+
+  <section class="card log" aria-label="Histórico de eventos">
     <header><h2>Histórico</h2><span id="logN"></span></header>
     <ul id="events"></ul>
   </section>
@@ -260,6 +306,30 @@ const TIPOS = {
   ARMADO: { txt: "Sistema armado", cls: "warn" },
   DESARMADO: { txt: "Sistema desarmado", cls: "ok" }
 };
+const ICONES = {
+  desarmado: '<svg class="i" viewBox="0 0 24 24"><path d="M12 3 5 6v5.500c0 4.600 3 8 7 9.500 4-1.500 7-4.900 7-9.500V6z"/><path d="m9 12 2 2 4-4"/></svg>',
+  armado: '<svg class="i" viewBox="0 0 24 24"><path d="M12 3 5 6v5.500c0 4.600 3 8 7 9.500 4-1.500 7-4.900 7-9.500V6z"/><circle cx="12" cy="11.500" r="2.200"/></svg>',
+  alarme: '<svg class="i" viewBox="0 0 24 24"><path d="M12 3 2.500 20h19z"/><path d="M12 10v4M12 17.500v.01"/></svg>',
+  offline: '<svg class="i" viewBox="0 0 24 24"><path d="M2 9a15 15 0 0 1 5-3M22 9a15 15 0 0 0-5-3.500M5 12.500a10 10 0 0 1 3-2M19 12.500a10 10 0 0 0-3.500-2.300M8.500 16a5 5 0 0 1 7 0M12 19.500v.01M3 3l18 18"/></svg>'
+};
+
+/* gráfico: intrusões por hora nas últimas 24 h */
+function renderSpark() {
+  const now = Date.now();
+  const b = Array(24).fill(0);
+  EV.forEach((e) => {
+    if (e.tipo !== "INTRUSAO") return;
+    const h = Math.floor((now - e.ts) / 3600000);
+    if (h >= 0 && h < 24) b[23 - h]++;
+  });
+  const max = Math.max(1, ...b), total = b.reduce((a, n) => a + n, 0);
+  $("spark").innerHTML = b.map((n, i) => {
+    const h = 23 - i;
+    const quando = h === 0 ? "na última hora" : "há " + h + " h";
+    return '<i class="' + (n ? "hit" : "") + '" style="height:' + (n ? Math.max(18, n / max * 100) : 6) + '%" title="' + n + (n === 1 ? " intrusão " : " intrusões ") + quando + '"></i>';
+  }).join("");
+  $("sparkN").textContent = total ? total + (total === 1 ? " intrusão" : " intrusões") + " nas últimas 24 h" : "Nenhuma intrusão nas últimas 24 h";
+}
 
 /* ---------- desenho ---------- */
 function render() {
@@ -271,6 +341,7 @@ function render() {
     else { s = "desarmado"; word = "Desarmado"; sub = "Movimentos são ignorados e nenhum alerta é enviado."; }
   }
   st.dataset.s = s;
+  if ($("stateIcon").dataset.k !== s) { $("stateIcon").innerHTML = ICONES[s]; $("stateIcon").dataset.k = s; }
   document.title = s === "alarme" ? "ALARME · Central de Segurança IoT" : "Central de Segurança IoT";
   $("word").textContent = word;
   $("sub").textContent = pending ? "Comando enviado. Aguardando a central…" : sub;
@@ -282,6 +353,7 @@ function render() {
   $("btnArmar").disabled = !online || !!pending || S.armado;
   $("btnDesarmar").disabled = !online || !!pending || !S.armado;
 
+  $("tilePir").dataset.mov = online && S.pir ? "1" : "0";
   $("pir").innerHTML = online
     ? (S.pir ? '<span class="pill crit">MOVIMENTO</span>' : '<span class="pill mute">SEM MOVIMENTO</span>')
     : "—";
@@ -289,17 +361,19 @@ function render() {
   $("oc").textContent = S.ocorrencias || 0;
 
   const r = S.rssi;
-  $("rssi").textContent = r == null ? "—" : r + " dBm";
+  $("rssi").innerHTML = r == null ? "—" : r + "<small>dBm</small>";
   const lvl = r == null ? 0 : r >= -55 ? 4 : r >= -65 ? 3 : r >= -75 ? 2 : 1;
   [...$("bars").children].forEach((b, i) => b.classList.toggle("on", i < lvl));
   $("up").textContent = online ? fmtUp(S.uptime) : "—";
 
+  renderSpark();
+
   const ul = $("events");
   $("logN").textContent = EV.length ? "últimos " + EV.length + " eventos" : "";
-  if (!EV.length) { ul.innerHTML = '<li class="empty" style="display:block">Nenhum evento ainda. Arme a central e acione o sensor PIR.</li>'; return; }
+  if (!EV.length) { ul.innerHTML = '<li class="empty">Nenhum evento ainda. Arme a central e acione o sensor PIR.</li>'; return; }
   ul.innerHTML = EV.map((e) => {
     const t = TIPOS[e.tipo] || { txt: e.tipo, cls: "mute" };
-    return '<li><span class="when mono">' + fmtClock(e.ts) + '</span><span><span class="pill ' + t.cls + '">' + (e.tipo || "") + '</span></span>' +
+    return '<li data-k="' + (e.tipo || "") + '"><span class="when mono">' + fmtClock(e.ts) + '</span><span><span class="pill ' + t.cls + '">' + (e.tipo || "") + '</span></span>' +
       '<span class="what">' + t.txt + (e.tipo === "INTRUSAO" && e.ocorrencias ? " (nº " + e.ocorrencias + ")" : "") + '</span>' +
       '<span class="up mono">' + ago(e.ts) + '</span></li>';
   }).join("");
@@ -314,7 +388,6 @@ async function pull() {
       fetch(b + "/central/eventos.json?orderBy=" + encodeURIComponent('"$key"') + "&limitToLast=30").then((r) => r.json())
     ]);
     if (est) {
-      const before = S.armado;
       S = { armado: !!est.armado, alarme: !!est.alarme, pir: !!est.pir, rssi: est.rssi ?? null, uptime: est.uptime || 0, ocorrencias: est.ocorrencias || 0, ts: est.atualizadoEm || 0 };
       online = Date.now() - S.ts < ONLINE_MS;
       if (pending && S.armado === pending.alvo) pending = null;
