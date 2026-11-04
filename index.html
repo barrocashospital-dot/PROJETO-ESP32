@@ -253,7 +253,7 @@ function ago(ts) {
   if (s < 3600) return "há " + Math.floor(s / 60) + " min";
   if (s < 86400) return "há " + Math.floor(s / 3600) + " h";
   const d = new Date(ts);
-  return pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear();
+  return pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear() + " às " + pad(d.getHours()) + ":" + pad(d.getMinutes());
 }
 const TIPOS = {
   INTRUSAO: { txt: "Intrusão detectada", cls: "crit" },
